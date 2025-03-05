@@ -15,7 +15,8 @@ host = ''
 token = ''
 
 # Set the volume path
-volume_path = '/Volumes/mikekahn-demo/mikekahn/files/'
+# Include the volumes path in the '' 's Example: /Volumes/mikekahn-demo/mikekahn/files/
+volume_path = ''
 
 # Set the API endpoint to list directory contents
 list_endpoint = f'{host}api/2.0/fs/directories{volume_path}'
