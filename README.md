@@ -1,4 +1,15 @@
--8338-d2e518b5dbbf)
+# volume-helper
+
+A file browser utility for Databricks Volumes. 
+The volumes files browser in our console does not present a native way to quickly examine documents and images, it only displays files. This app allows users to browse a volume, view images, PDFs, and also upload files through a web browser. 
+
+
+Enables org and domain users that do not have Databricks console access to collaborate view upload and download files. 
+It potentially opens up collaboration with files and Databricks volumes to a wider user group beyond console users.
+
+Architecture:
+
+![image](https://github.com/user-attachments/assets/0151c6d9-7410-42f4-8338-d2e518b5dbbf)
 
 
 Example use cases:
@@ -21,7 +32,7 @@ After your App is deployed you will need to point it the volume-helper files.
 After the compute for your app has started you will need to create a deployment. Click Deploy within the Apps page.
 
 You will be prompted to create a deployment
-<pic of deployment>
+![image](https://github.com/user-attachments/assets/7e0b8494-7b5e-4297-b6b4-1076e50b79a5)
 
 Select the folder that has your app, click select to proceed. Click Deploy to build and deploy your app.
 ![image](https://github.com/user-attachments/assets/6a226b34-3826-4ef6-983b-4b453ab8b6e2)
