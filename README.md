@@ -9,7 +9,7 @@ It potentially opens up collaboration with files and Databricks volumes to a wid
 
 Architecture:
 
-![image]([https://github.com/user-attachments/assets/0151c6d9-7410-42f4-8338-d2e518b5dbbf](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/arch.png))
+![image](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/arch.png))
 
 
 Example use cases:
