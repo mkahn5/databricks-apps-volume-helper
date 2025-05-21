@@ -32,10 +32,10 @@ After your App is deployed you will need to point it the volume-helper files.
 After the compute for your app has started you will need to create a deployment. Click Deploy within the Apps page.
 
 You will be prompted to create a deployment
-![image](https://github.com/user-attachments/assets/7e0b8494-7b5e-4297-b6b4-1076e50b79a5)
+![image](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/create-dep.png)
 
 Select the folder that has your app, click select to proceed. Click Deploy to build and deploy your app.
-![image](https://github.com/user-attachments/assets/6a226b34-3826-4ef6-983b-4b453ab8b6e2)
+![image](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/folder.png)
 
 ## App resource dependencies
 
@@ -43,19 +43,19 @@ By specifying the UC Volume resource type and resource mapping, the service prin
 After your app is deployed click Edit.
 
 Within the edit app menu, modify the resource type, volume location, and permissions. If you have not already created a volume and put some files there, now is the time to do that.
-![image](https://github.com/user-attachments/assets/1b08d734-459f-41a8-8c45-94399765700c)
+![image](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/app.png)
 
 ## Create a personal access token (PAT)
 
 Within the workspace settings, visit User -> Developer and generate a new token. You will copy the token and put it in your app's code.
-![image](https://github.com/user-attachments/assets/69b92ca7-5d3d-4dde-aeec-e0dbe7d9eb00)
+![image](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/pat1.png)
 
-
-![image](https://github.com/user-attachments/assets/0859f766-44d0-4e62-9509-0055f412d73c)
+![image](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/pat2.png)
 
 ## Update code and deploy
 
-Within your app.py file, update the host from your workspace URL and the token from the PAT previously generated
-![image](https://github.com/user-attachments/assets/fa79e03c-31b6-45a0-95e9-f83a53485f81)
+Within your app.py file, update the host from your workspace URL and the token from the PAT previously generated.
+Review the comments in the header of the code to update your host, PAT, and volume path(s)
+![image](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/deploy.png) 
 
 Now, deploy your application and test the running url. Enjoy the Volume helper app!
