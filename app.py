@@ -1,224 +1,377 @@
-## this is for testing purposes, SDK authentication is preferred 
-## mimi.qunell@databricks.com has SDK option
+# v0.3 Databricks Volume Helper - collaborate with organization non console users - a simple file browser tool on Databricks Apps
+# mike.kahn@databricks.com
+# To use this app, update lines 18 (host),19 (PAT), 242 (volume path), 243 (volume path 2 (optional))
 
+
+import os
 import requests
 import streamlit as st
 from PIL import Image, ExifTags
-import base64
 import io
-import json
 from streamlit_pdf_viewer import pdf_viewer
+from streamlit.runtime.scriptrunner import RerunException
 
-# Set the Databricks API host and personal access token
-# include the databricks host and PAT secret key token in the token '' 's
+
+# replace host with the Databricks hostname in your url
+# replace token with the PAT - more details https://docs.databricks.com/aws/en/dev-tools/auth/pat 
+# ─── Constants ────────────────────────────────────────────────────────────────
 host = ''
 token = ''
 
-# Set the volume path
-# Include the volumes path in the '' 's Example: /Volumes/mikekahn-demo/mikekahn/files/
-volume_path = ''
-
-# Set the API endpoint to list directory contents
-list_endpoint = f'{host}api/2.0/fs/directories{volume_path}'
-
-# Set file type categories
 image_types = ['png', 'jpg', 'jpeg', 'gif', 'bmp']
-text_types = ['txt', 'text', 'csv', 'json', 'xml']
-html_types = ['html', 'htm']
-pdf_types = ['pdf']
+text_types  = ['txt', 'text', 'csv', 'json', 'xml']
+html_types  = ['html', 'htm']
+pdf_types   = ['pdf']
 supported_types = image_types + text_types + html_types + pdf_types
 
-# Set headers for API requests
 headers = {
     'Authorization': f'Bearer {token}',
     'Content-Type': 'application/json'
 }
 
-# Configure Streamlit layout
 st.set_page_config(layout="wide")
 
+# ─── CSS Injection ────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+body {
+  font-family: 'SF Pro Display', sans-serif;
+  background: #fff;
+  color: #222;
+  margin: 0;
+  padding: 0;
+}
+header {
+  display: flex;
+  align-items: center;
+  padding: 24px 0 0 32px;
+}
+.logo {
+  height: 28px;
+  margin-right: 16px;
+}
+h1 {
+  font-size: 2.2rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+.subtitle {
+  color: #666;
+  font-size: 1.1rem;
+  margin-bottom: 32px;
+}
+input[type="text"] {
+  width: 420px;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 1rem;
+  margin-bottom: 24px;
+  background: #fafbfc;
+}
+input[type="text"]:focus {
+  outline: 2px solid #0069d9;
+  border-color: #0069d9;
+}
+.container {
+  display: flex;
+  flex-direction: row;
+  gap: 32px;
+  margin: 0 32px;
+}
+.file-list {
+  flex: 1;
+  background: #f7f8fa;
+  border-radius: 10px;
+  padding: 24px;
+  min-width: 340px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+.file-list h2 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-bottom: 18px;
+}
+.file-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.file-card, .folder-card {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+.file-card.selected, .folder-card.selected {
+  border: 2px solid #0069d9;
+  box-shadow: 0 2px 8px rgba(0,105,217,0.08);
+}
+.file-card:hover, .folder-card:hover {
+  border: 1.5px solid #0069d9;
+}
+.file-icon, .folder-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-info {
+  display: flex;
+  flex-direction: column;
+}
+.file-name, .folder-name {
+  font-weight: 500;
+  font-size: 1.05rem;
+  color: #222;
+}
+.file-date, .folder-date {
+  font-size: 0.92rem;
+  color: #888;
+  margin-top: 2px;
+}
+.viewer-pane {
+  flex: 2;
+  background: #fff;
+  border-radius: 10px;
+  padding: 32px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  min-width: 480px;
+}
+.viewer-pane h3 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.viewer-preview {
+  margin-top: 18px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+.viewer-preview img, .viewer-preview embed, .viewer-preview object {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+    gap: 18px;
+  }
+  .file-list, .viewer-pane {
+    min-width: 0;
+    width: 100%;
+  }
+}
+</style>
+""", unsafe_allow_html=True)
 
-# Function to download a file from the Databricks volume
-def download_file(file_path):
-    """
-    Downloads a file from the Databricks volume using its file path.
+# ─── Helper Functions ────────────────────────────────────────────────────────
+def download_file(path: str) -> bytes | None:
+    p = path.lstrip('/')
+    resp = requests.get(f"{host}api/2.0/fs/files/{p}", headers=headers, stream=True)
+    return resp.content if resp.status_code == 200 else None
 
-    :param file_path: The path to the file in the Databricks volume
-    :return: The content of the downloaded file as bytes, or None if an error occurs
-    """
-    if file_path.startswith('/'):
-        file_path = file_path[1:]  # Remove leading slash if present
+def upload_file(path: str, data: bytes) -> bool:
+    resp = requests.put(f"{host}api/2.0/fs/files/{path.lstrip('/')}", headers=headers, data=data)
+    return 200 <= resp.status_code < 300
 
-    # Define the download API endpoint
-    download_endpoint = f'{host}api/2.0/fs/files/{file_path}'
+def get_file_type(name: str) -> str:
+    ext = name.split('.')[-1].lower()
+    if ext in image_types: return 'image'
+    if ext in text_types:  return 'text'
+    if ext in html_types:  return 'html'
+    if ext in pdf_types:   return 'pdf'
+    return 'unknown'
 
-    # Send GET request to download the file
-    response = requests.get(download_endpoint, headers=headers, stream=True)
-
-    # Return file content if the request is successful
-    if response.status_code == 200:
-        return response.content
-    else:
-        return None
-
-
-# Function to upload a file to the Databricks volume
-def upload_file(file_path, file_data):
-    """
-    Uploads a file to the Databricks volume.
-
-    :param file_path: Path in the Databricks volume where the file will be uploaded
-    :param file_data: File data in bytes
-    """
-    upload_endpoint = f'{host}api/2.0/fs/files/{file_path}'
-
-    response = requests.put(upload_endpoint, headers=headers, data=file_data)
-    return response.status_code == 200
-
-
-# Function to determine the file type based on its extension
-def get_file_type(file_name):
-    """
-    Identifies the file type based on its extension.
-
-    :param file_name: Name of the file
-    :return: A string representing the file type ('image', 'text', 'html', 'pdf', 'unknown')
-    """
-    file_extension = file_name.split('.')[-1].lower()
-    if file_extension in image_types:
-        return 'image'
-    elif file_extension in text_types:
-        return 'text'
-    elif file_extension in html_types:
-        return 'html'
-    elif file_extension in pdf_types:
-        return 'pdf'
-    else:
-        return 'unknown'
-
-
-# Function to correct image orientation using EXIF metadata
-def correct_image_orientation(image):
+def correct_image_orientation(img: Image.Image) -> Image.Image:
     try:
-        for orientation in ExifTags.TAGS.keys():
-            if ExifTags.TAGS[orientation] == 'Orientation':
+        for k,v in ExifTags.TAGS.items():
+            if v == 'Orientation':
+                orient_key = k
                 break
-        exif = image._getexif()
-        if exif is not None:
-            orientation = exif.get(orientation)
-            if orientation == 3:
-                image = image.rotate(180, expand=True)
-            elif orientation == 6:
-                image = image.rotate(270, expand=True)
-            elif orientation == 8:
-                image = image.rotate(90, expand=True)
+        exif = img._getexif()
+        if exif:
+            o = exif.get(orient_key)
+            if o == 3: img = img.rotate(180, expand=True)
+            if o == 6: img = img.rotate(270, expand=True)
+            if o == 8: img = img.rotate(90, expand=True)
     except Exception:
         pass
-    return image
+    return img
 
+def build_tree_display(root: str, flat_list: list[str]) -> tuple[list[str], dict[str,str]]:
+    labels, mapping = [], {}
+    for path in flat_list:
+        rel = path.replace(root, "").lstrip("/")
+        depth = rel.count("/")
+        name = os.path.basename(path.rstrip("/")) + ("/" if path.endswith("/") else "")
+        indent = " " * depth
+        lbl = f"{indent}{name}"
+        labels.append(lbl)
+        mapping[lbl] = path
+    return labels, mapping
 
-# Main application function
+# ─── Main App ────────────────────────────────────────────────────────────────
 def main():
-    # Define two-column layout
+    # Header
+    st.markdown("""
+    <header>
+    <h1>UC volume viewer</h1>
+    </header>
+    <p class="subtitle">
+      This app allows you to view, upload, and download files from a Databricks volume
+    </p>
+    """, unsafe_allow_html=True)
+
+    # Replace volume path with your Databricks volume(s) - https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-volumes 
+    # Volume selector
+    volumes = [
+        "/Volumes/mikekahn-demo/mikekahn/files/",
+        "/Volumes/mikekahn-demo/mikekahn/mylife/"
+    ]
+    if "current_volume" not in st.session_state:
+        st.session_state.current_volume = volumes[0]
+
+    sel = st.selectbox(
+        "Enter a Unity Catalog Volume name",
+        volumes,
+        index=volumes.index(st.session_state.current_volume)
+    )
+    if sel != st.session_state.current_volume:
+        st.session_state.current_volume = sel
+        st.session_state.file_list = []
+        st.session_state.expanded_dirs = set()
+
+    # Container for file-list and viewer
+    st.markdown('<div class="container">', unsafe_allow_html=True)
     col1, col2 = st.columns([0.3, 0.7])
 
-    # Initialize session state for file listing
-    if "file_list" not in st.session_state:
-        st.session_state.file_list = []
-
-    # Function to refresh file list
-    def refresh_file_list():
-        response = requests.get(list_endpoint, headers=headers)
-        if response.status_code == 200:
-            st.session_state.file_list = [
-                file['path'] for file in response.json().get('contents', [])
-            ]
-        else:
-            st.error(f"Error fetching file list: {response.status_code} - {response.text}")
-
-    # File Selector Section
+    # ── Column 1: File List ────────────────────────────────────────────────
     with col1:
-        st.title("Databricks Volumes Helper")
-        st.markdown("This app allows you to view and download files from a Databricks volume")
-        st.subheader("File Selector")
+        st.markdown('<div class="file-list">', unsafe_allow_html=True)
+        st.markdown("<h2>Files</h2>", unsafe_allow_html=True)
 
-        # Refresh file list on first load or on manual refresh
+        if "file_list" not in st.session_state:
+            st.session_state.file_list = []
+        if "expanded_dirs" not in st.session_state:
+            st.session_state.expanded_dirs = set()
+
+        def refresh_list():
+            r = requests.get(
+                f"{host}api/2.0/fs/directories{st.session_state.current_volume}",
+                headers=headers
+            )
+            if r.status_code == 200:
+                st.session_state.file_list = [f["path"] for f in r.json().get("contents", [])]
+                st.session_state.expanded_dirs.clear()
+            else:
+                st.error(f"Error fetching file list: {r.status_code}")
+
         if not st.session_state.file_list:
-            refresh_file_list()
+            refresh_list()
 
-        # Display the file list
-        selected_file = st.radio("Select a file to display:", [""] + st.session_state.file_list, key="file_selector")
+        labels, mapping = build_tree_display(
+            st.session_state.current_volume,
+            st.session_state.file_list
+        )
+        choice = st.radio("", [""] + labels, key="file_label")
+        st.session_state.file_selector = mapping.get(choice, "")
 
-        # File upload section
-        st.markdown("---")  # Divider
-        uploaded_file = st.file_uploader("Upload local file:")
-        if uploaded_file:
-            file_path = volume_path + uploaded_file.name
-            if upload_file(file_path, uploaded_file.read()):
-                st.success(f"File '{uploaded_file.name}' uploaded successfully!")
-                refresh_file_list()  # Refresh file list after successful upload
+        st.markdown("---")
+        upload = st.file_uploader("Upload local file:")
+        if upload:
+            dest = st.session_state.current_volume + upload.name
+            if upload_file(dest, upload.read()):
+                st.success(f"'{upload.name}' uploaded successfully!")
+                refresh_list()
+                raise RerunException()
             else:
-                st.error(f"Failed to upload file '{uploaded_file.name}'.")
+                st.error(f"Failed to upload '{upload.name}'")
 
-        # Refresh button
-        if st.button("Refresh File Listing", key="refresh"):
-            refresh_file_list()
+        if st.button("Refresh File Listing"):
+            refresh_list()
 
-    # File Viewer Section
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Column 2: Viewer Pane ─────────────────────────────────────────────
     with col2:
-        st.header("")
-        st.markdown("")
-        st.markdown("")
-        st.subheader("File Viewer")
-        st.caption("Files supported: .png, .jpg, .jpeg, .gif, .bmp, .txt, .csv, .json, .xml, .pdf, .html")
+        st.markdown('<div class="viewer-pane">', unsafe_allow_html=True)
+        st.markdown("<h3>Preview</h3>", unsafe_allow_html=True)
+        st.caption("Supported: .png, .jpg, .html, .pdf, .txt, etc.")
 
-        # Handle the selected file
-        if selected_file:
-            if selected_file == "":
-                st.write("No file selected.")
-            elif selected_file.endswith('/'):
-                st.error("Sub-directory browsing is not available.")
+        selected = st.session_state.get("file_selector", "")
+        if selected.endswith("/"):
+            if selected not in st.session_state.expanded_dirs:
+                r = requests.get(f"{host}api/2.0/fs/directories{selected}", headers=headers)
+                if r.status_code == 200:
+                    st.session_state.expanded_dirs.add(selected)
+                    children = r.json().get("contents", [])
+                    idx = st.session_state.file_list.index(selected)
+                    for i, child in enumerate(children, start=1):
+                        p = child["path"]
+                        if p not in st.session_state.file_list:
+                            st.session_state.file_list.insert(idx + i, p)
+                else:
+                    st.error(f"Error listing directory: {r.status_code}")
+                raise RerunException()
+
+        elif selected:
+            data = download_file(selected)
+            if not data:
+                st.error("Failed to download file.")
+                return
+
+            name = os.path.basename(selected)
+            ftype = get_file_type(name)
+
+            if ftype == "image":
+                img = Image.open(io.BytesIO(data))
+                img = correct_image_orientation(img)
+                st.image(img, caption=name, use_column_width=True)
+
+            elif ftype == "text":
+                st.text_area("File Content", data.decode("utf-8"), height=300)
+
+            elif ftype == "html":
+                mode = st.radio("Render as:", ["html", "raw"], key="html_render")
+                if mode == "html":
+                    st.components.v1.html(data.decode("utf-8"), height=600, scrolling=True)
+                else:
+                    st.text_area("Raw HTML", data.decode("utf-8"), height=300)
+
+            elif ftype == "pdf":
+                pdf_viewer(data, height=600)
+
             else:
-                file_name = selected_file.split('/')[-1]  # Extract the file name
-                file_bytes = download_file(selected_file)
+                st.error("Unsupported file type.")
 
-                if file_bytes:
-                    file_type = get_file_type(file_name)
+            st.download_button(
+                f"Download {name}",
+                data=data,
+                file_name=name,
+                mime="application/octet-stream"
+            )
+        else:
+            st.write("No file or folder selected.")
 
-                    # Display the file preview based on its type
-                    if file_type == 'image':
-                        image = Image.open(io.BytesIO(file_bytes))
-                        corrected_image = correct_image_orientation(image)
-                        st.image(corrected_image, caption=file_name, use_column_width=True)
-                    elif file_type == 'text':
-                        st.text_area(label="File Content", value=file_bytes.decode('utf-8'), height=300)
-                    elif file_type == 'html':
-                        render_as = st.radio("Render as:", ["html", "raw text"], key="html_render")
-                        if render_as == "html":
-                            st.components.v1.html(file_bytes.decode('utf-8'), height=600, scrolling=True)
-                        else:
-                            st.text_area(label="Raw HTML Content", value=file_bytes.decode('utf-8'), height=300)
-                    elif file_type == 'pdf':
-                        pdf_viewer(file_bytes, height=600)
-                    else:
-                        st.error("Unsupported file type.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-                    # Download button
-                    st.download_button(
-                        label=f"Download {file_name}",
-                        data=file_bytes,
-                        file_name=file_name,
-                        mime='application/octet-stream'
-                    )
+    # close container
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-
-
-#to fix - not currently able to display current textType's (['txt','text','csv','json','xml']), need to fix and other files
-#to fix - move download and cancel buttons to top of col2 - change cancel to [x] button like a window and fix the cancel/refresh code
-#todo - update format of file listing to use st.radio style for streamlit in sidebar col1 
-#todo - add refresh file listing for newly uploaded files to volume
-#todo - add select local file to upload files to volume using st.file_uploader and streamlit.components.v1 
-#todo - clean up code into sections and fix indentations
