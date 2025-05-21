@@ -43,6 +43,7 @@ By specifying the UC Volume resource type and resource mapping, the service prin
 After your app is deployed click Edit.
 
 Within the edit app menu, modify the resource type, volume location, and permissions. If you have not already created a volume and put some files there, now is the time to do that.
+
 ![image](https://github.com/mkahn5/databricks-apps-volume-helper/blob/main/images/app.png)
 
 ## Create a personal access token (PAT)
