@@ -1,4 +1,4 @@
-# volume-helper
+# Databricks Volume Helper
 
 A file browser utility for Databricks Volumes. 
 The volumes files browser in our console does not present a native way to quickly examine documents and images, it only displays files. This app allows users to browse a volume, view images, PDFs, and also upload files through a web browser. 
